@@ -6,9 +6,106 @@ void CACHE::llc_initialize_replacement()
 }
 
 // find replacement victim
-uint32_t CACHE::llc_find_victim(uint32_t cpu, uint64_t instr_id, uint32_t set, const BLOCK *current_set, uint64_t ip, uint64_t full_addr, uint32_t type)
+pair<uint32_t, uint32_t> CACHE::llc_find_victim(uint32_t cpu, uint64_t instr_id, uint32_t set, const BLOCK *current_set, uint64_t ip, uint64_t full_addr, uint32_t type)
 {
-    return lru_victim(cpu, instr_id, set, current_set, ip, full_addr, type);
+    pair<uint32_t, uint32_t> victim;     // <set, way>
+    pair<uint32_t, uint32_t> victim_lru; // <set, way>
+
+    if (warmup_complete[cpu])
+    {
+        int32_t helper = cache_organiser.get_helper_set(set);
+        uint32_t way;
+
+        if (helper == -1) // For cold set
+        {
+            victim.first = set;
+
+            // checking if any block is invalid
+            for (way = NUM_WAY / 2; way < NUM_WAY; way++)
+            {
+                if (block[set][way].valid == false)
+                {
+                    victim.second = way;
+                    break;
+                }
+            }
+
+            // For LRU victim
+            if (way == NUM_WAY)
+            {
+                for (way = NUM_WAY / 2; way < NUM_WAY; way++)
+                {
+                    if (block[set][way].lru == (NUM_WAY / 2) - 1)
+                    {
+                        victim.second = way;
+                        break;
+                    }
+                }
+            }
+
+            if (way == NUM_WAY)
+            {
+                cerr << "[" << NAME << "] " << __func__ << " no victim! set: " << set << endl;
+                assert(0);
+            }
+
+            return victim;
+        }
+        else // For hot set
+        {
+            victim.first = set;
+            victim.second = -1;
+
+            // checking if any block is invalid in main set
+            for (way = 0; way < NUM_WAY; way++)
+            {
+                if (block[set][way].valid == false)
+                {
+                    victim.second = way;
+                    break;
+                }
+
+                // lru victim
+                if (block[set][way].lru == NUM_WAY + (NUM_WAY / 2) - 1)
+                {
+                    victim_lru.first = set;
+                    victim_lru.second = way;
+                }
+            }
+
+            // Searching in helper set
+            if (way == NUM_WAY)
+            {
+                for (way = 0; way < NUM_WAY / 2; way++)
+                {
+                    if (block[helper][way].valid == false)
+                    {
+                        victim.second = way;
+                        break;
+                    }
+                    // lru victim
+                    if (block[set][way].lru == NUM_WAY + (NUM_WAY / 2) - 1)
+                    {
+                        victim_lru.first = helper;
+                        victim_lru.second = way;
+                    }
+                }
+            }
+
+            if (victim.second == -1)
+            {
+                return victim_lru;
+            }
+
+            return victim;
+        }
+    }
+    else
+    {
+        victim.first = set;
+        victim.second = lru_victim(cpu, instr_id, set, current_set, ip, full_addr, type);
+        return victim;
+    }
 }
 
 // called on every cache hit and cache fill
@@ -68,10 +165,10 @@ void CACHE::llc_update_replacement_state(uint32_t cpu, uint32_t set, uint32_t wa
                 }
             }
 
-            // get helper set if available
-            int32_t helper = cache_organiser.get_helper_set(set);
+            // get helper/parent set if available
+            int32_t next_set = cache_organiser.get_helper_set(set);
 
-            set = (helper != -1) ? helper : cache_organiser.get_parent_set(set);
+            set = (next_set != -1) ? next_set : cache_organiser.get_parent_set(set);
 
             for (size_t i = 0; i < NUM_WAY; i++)
             {

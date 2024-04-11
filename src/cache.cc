@@ -24,7 +24,9 @@ void CACHE::handle_fill()
     uint32_t set = get_set(MSHR.entry[mshr_index].address), way;
     if (cache_type == IS_LLC)
     {
-      way = llc_find_victim(fill_cpu, MSHR.entry[mshr_index].instr_id, set, block[set], MSHR.entry[mshr_index].ip, MSHR.entry[mshr_index].full_addr, MSHR.entry[mshr_index].type);
+      pair<uint32_t, uint32_t> victim = llc_find_victim(fill_cpu, MSHR.entry[mshr_index].instr_id, set, block[set], MSHR.entry[mshr_index].ip, MSHR.entry[mshr_index].full_addr, MSHR.entry[mshr_index].type);
+      set = victim.first;
+      way = victim.second;
     }
     else
     {
@@ -430,7 +432,9 @@ void CACHE::handle_writeback()
         uint32_t set = get_set(WQ.entry[index].address), way;
         if (cache_type == IS_LLC)
         {
-          way = llc_find_victim(writeback_cpu, WQ.entry[index].instr_id, set, block[set], WQ.entry[index].ip, WQ.entry[index].full_addr, WQ.entry[index].type);
+          pair<uint32_t, uint32_t> victim = llc_find_victim(writeback_cpu, WQ.entry[index].instr_id, set, block[set], WQ.entry[index].ip, WQ.entry[index].full_addr, WQ.entry[index].type);
+          set = victim.first;
+          way = victim.second;
         }
         else
           way = find_victim(writeback_cpu, WQ.entry[index].instr_id, set, block[set], WQ.entry[index].ip, WQ.entry[index].full_addr, WQ.entry[index].type);
