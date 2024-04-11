@@ -5,7 +5,6 @@ prefetcher/l1d_prefetcher.cc
 prefetcher/l2c_prefetcher.cc
 prefetcher/llc_prefetcher.cc
 branch/branch_predictor.cc
-replacement/llc_replacement.cc
 
 inc/champsim.h.bak
 

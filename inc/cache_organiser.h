@@ -6,6 +6,7 @@ class CACHE_ORGANISER
 {
     pair<uint32_t, uint64_t> *temperature; // stores temperature of each set
     int32_t *helper;                       // stores helper set of each set
+    int32_t *parent;                       // stores the parent set of a helper set
     uint32_t num_sets, num_ways;           // stores sets and ways of the cache
     BLOCK **block;                         // pointer to cache blocks
     bool warmup_state;                     // stores warmup state of the program
@@ -16,6 +17,7 @@ class CACHE_ORGANISER
         // allocating memory
         temperature = new pair<uint32_t, uint64_t>[num_sets];
         helper = new int32_t[num_sets];
+        parent = new int32_t[num_sets];
 
         // initialising values
         for (uint32_t i = 0; i < num_sets; i++)
@@ -23,6 +25,7 @@ class CACHE_ORGANISER
             temperature[i].first = i;
             temperature[i].second = 0;
             helper[i] = -1;
+            parent[i] = -1;
         }
     }
 
@@ -40,14 +43,28 @@ class CACHE_ORGANISER
 
         for (uint32_t i = 0; i < num_sets / 2; i++)
         {
-            // assign helper set
-            helper[temperature[i].first] = temperature[num_sets - i - 1].first;
+            uint32_t helper_set_index = num_sets - i - 1;
 
-            // set only half of the blocks in the helper set to cold
-            // remaining will remain cold to be used by hot set
+            // assign helper set
+            helper[temperature[i].first] = temperature[helper_set_index].first;
+
+            // assign parent set
+            parent[temperature[helper_set_index].first] = temperature[i].first;
+
             for (uint32_t j = num_ways / 2; j < num_ways; j++)
             {
-                block[num_sets - i - 1][j].hot = 0;
+                // set only half of the blocks in the helper set to cold
+                // remaining will remain cold to be used by hot set
+                block[helper_set_index][j].hot = 0;
+
+                // update lru value of cold blocks
+                block[helper_set_index][j].lru = j - (num_ways / 2);
+            }
+
+            // update lru value of hot blocks of helper set
+            for (size_t j = 0; j < num_ways / 2; j++)
+            {
+                block[helper_set_index][j].lru = j + num_ways;
             }
         }
     }
@@ -70,9 +87,15 @@ public:
     }
 
     // Getter function to get helper set
-    uint32_t get_helper_set(uint32_t set)
+    int32_t get_helper_set(uint32_t set)
     {
         return helper[set];
+    }
+
+    // Getter function to get parent set
+    int32_t get_parent_set(uint32_t set)
+    {
+        return parent[set];
     }
 
     // Constructor
