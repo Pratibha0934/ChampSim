@@ -2,7 +2,7 @@
 #define CACHE_H
 
 #include "memory_class.h"
-#include "block_organiser.h"
+#include "cache_organiser.h"
 
 // PAGE
 extern uint32_t PAGE_TABLE_LATENCY, SWAP_LATENCY;
@@ -87,7 +87,7 @@ public:
     const uint32_t NUM_SET, NUM_WAY, NUM_LINE, WQ_SIZE, RQ_SIZE, PQ_SIZE, MSHR_SIZE;
     uint32_t LATENCY;
     BLOCK **block;
-    BLOCK_ORGANISER block_organiser;
+    CACHE_ORGANISER cache_organiser;
     int fill_level;
     uint32_t MAX_READ, MAX_FILL;
     uint32_t reads_available_this_cycle;
@@ -135,11 +135,9 @@ public:
             }
         }
 
-        // llc organiser
-        if (NAME == "LLC")
+        if (cache_type == IS_LLC)
         {
-            block_organiser = BLOCK_ORGANISER(LLC_SET);
-            block_organiser.initialise_block_map();
+            cache_organiser = CACHE_ORGANISER(NUM_SET, NUM_WAY, block);
         }
 
         for (uint32_t i = 0; i < NUM_CPUS; i++)
