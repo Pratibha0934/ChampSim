@@ -8,7 +8,7 @@ void CACHE::llc_initialize_replacement()
 // find replacement victim
 pair<uint32_t, uint32_t> CACHE::llc_find_victim(uint32_t cpu, uint64_t instr_id, uint32_t set, const BLOCK *current_set, uint64_t ip, uint64_t full_addr, uint32_t type)
 {
-    pair<uint32_t, uint32_t> victim;     // <set, way>
+    pair<uint32_t, int32_t> victim;     // <set, way>
     pair<uint32_t, uint32_t> victim_lru; // <set, way>
 
     if (warmup_complete[cpu])

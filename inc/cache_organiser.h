@@ -11,26 +11,8 @@ class CACHE_ORGANISER
     BLOCK **block;                         // pointer to cache blocks
     bool warmup_state;                     // stores warmup state of the program
 
-    // Initialisation function
-    void initialise_organiser()
-    {
-        // allocating memory
-        temperature = new pair<uint32_t, uint64_t>[num_sets];
-        helper = new int32_t[num_sets];
-        parent = new int32_t[num_sets];
-
-        // initialising values
-        for (uint32_t i = 0; i < num_sets; i++)
-        {
-            temperature[i].first = i;
-            temperature[i].second = 0;
-            helper[i] = -1;
-            parent[i] = -1;
-        }
-    }
-
     // function for sorting *temperature
-    bool sortbysec(const pair<uint32_t, uint64_t> &a, const pair<uint32_t, uint64_t> &b)
+    static bool sortbysec(const pair<uint32_t, uint64_t> &a, const pair<uint32_t, uint64_t> &b)
     {
         return (a.second > b.second);
     }
@@ -40,6 +22,11 @@ class CACHE_ORGANISER
     {
         // sort sets based on temperature
         sort(temperature, temperature + num_sets, sortbysec);
+
+        // for (size_t i = 0; i < num_sets; i++)
+        // {
+        //     cout << temperature[i].first << " : " << temperature[i].second << endl;
+        // }
 
         for (uint32_t i = 0; i < num_sets / 2; i++)
         {
@@ -106,14 +93,23 @@ public:
         this->num_ways = num_ways;
         this->warmup_state = true;
         this->block = block;
-
-        initialise_organiser();
     }
 
-    // Destructor
-    ~CACHE_ORGANISER()
+    // Initialisation function
+    void initialise_organiser()
     {
-        delete temperature;
-        delete helper;
+        // allocating memory
+        temperature = new pair<uint32_t, uint64_t>[num_sets];
+        helper = new int32_t[num_sets];
+        parent = new int32_t[num_sets];
+
+        // initialising values
+        for (uint32_t i = 0; i < num_sets; i++)
+        {
+            temperature[i].first = i;
+            temperature[i].second = 0;
+            helper[i] = -1;
+            parent[i] = -1;
+        }
     }
 };

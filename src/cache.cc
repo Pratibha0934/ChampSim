@@ -1233,7 +1233,6 @@ int CACHE::check_hit(PACKET *packet)
       {
         if (block[set][way].valid && (block[set][way].tag == packet->address))
         {
-
           match_way = way;
           break;
         }

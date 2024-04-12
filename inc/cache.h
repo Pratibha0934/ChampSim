@@ -135,9 +135,10 @@ public:
             }
         }
 
-        if (cache_type == IS_LLC)
+        if (NAME == "LLC")
         {
             cache_organiser = CACHE_ORGANISER(NUM_SET, NUM_WAY, block);
+            cache_organiser.initialise_organiser();
         }
 
         for (uint32_t i = 0; i < NUM_CPUS; i++)
