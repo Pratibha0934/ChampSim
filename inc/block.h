@@ -12,7 +12,7 @@ public:
     uint8_t valid,
         prefetch,
         dirty,
-        hot,
+        foreign,
         used;
 
     int delta,
@@ -37,7 +37,7 @@ public:
         prefetch = 0;
         dirty = 0;
         used = 0;
-        hot = 1;
+        foreign = 0;
 
         delta = 0;
         depth = 0;
