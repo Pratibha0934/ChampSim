@@ -113,7 +113,7 @@ public:
     }
 
     // Getter function to get set type
-    int32_t get_parent_set(uint32_t set)
+    uint8_t get_set_type(uint32_t set)
     {
         return set_type[set];
     }
