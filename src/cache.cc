@@ -404,7 +404,7 @@ void CACHE::handle_writeback()
 
             DP(if (warmup_complete[writeback_cpu]) {
                         cout << "[" << NAME << "] " << __func__ << " mshr merged";
-                        cout << " instr_id: " << WQ.entry[index].instr_id << " prior_id: " << MSHR.entry[mshr_index].instr_id; 
+                        cout << " instr_id: " << WQ.entry[index].instr_id << " prior_id: " << MSHR.entry[mshr_index].instr_id;
                         cout << " address: " << hex << WQ.entry[index].address;
                         cout << " full_addr: " << WQ.entry[index].full_addr << dec;
                         cout << " cycle: " << WQ.entry[index].event_cycle << endl; });
@@ -844,7 +844,7 @@ void CACHE::handle_read()
 
             DP(if (warmup_complete[read_cpu]) {
                         cout << "[" << NAME << "] " << __func__ << " mshr merged";
-                        cout << " instr_id: " << RQ.entry[index].instr_id << " prior_id: " << MSHR.entry[mshr_index].instr_id; 
+                        cout << " instr_id: " << RQ.entry[index].instr_id << " prior_id: " << MSHR.entry[mshr_index].instr_id;
                         cout << " address: " << hex << RQ.entry[index].address;
                         cout << " full_addr: " << RQ.entry[index].full_addr << dec;
                         cout << " cycle: " << RQ.entry[index].event_cycle << endl; });
@@ -1089,7 +1089,7 @@ void CACHE::handle_prefetch()
 
             DP(if (warmup_complete[prefetch_cpu]) {
                         cout << "[" << NAME << "] " << __func__ << " mshr merged";
-                        cout << " instr_id: " << PQ.entry[index].instr_id << " prior_id: " << MSHR.entry[mshr_index].instr_id; 
+                        cout << " instr_id: " << PQ.entry[index].instr_id << " prior_id: " << MSHR.entry[mshr_index].instr_id;
                         cout << " address: " << hex << PQ.entry[index].address;
                         cout << " full_addr: " << PQ.entry[index].full_addr << dec << " fill_level: " << MSHR.entry[mshr_index].fill_level;
                         cout << " cycle: " << MSHR.entry[mshr_index].event_cycle << endl; });
@@ -1223,21 +1223,66 @@ int CACHE::check_hit(PACKET *packet)
     assert(0);
   }
 
-  // hit
-  for (uint32_t way = 0; way < NUM_WAY; way++)
+  if (cache_type == IS_LLC)
   {
-    if (block[set][way].valid && (block[set][way].tag == packet->address))
+    int32_t helper = cache_organiser.get_helper_set(set);
+
+    if (helper == -1) // for cold set
     {
+      for (uint32_t way = NUM_WAY / 2; way < NUM_WAY; way++)
+      {
+        if (block[set][way].valid && (block[set][way].tag == packet->address))
+        {
 
-      match_way = way;
+          match_way = way;
+          break;
+        }
+      }
+    }
+    else // for hot set
+    {
+      uint32_t way;
+      for (way = 0; way < NUM_WAY; way++)
+      {
+        if (block[set][way].valid && (block[set][way].tag == packet->address))
+        {
+          match_way = way;
+          break;
+        }
+      }
 
-      DP(if (warmup_complete[packet->cpu]) {
+      // searching in helper set
+      if (way == NUM_WAY)
+      {
+        for (way = 0; way < NUM_WAY; way++)
+        {
+          if (block[helper][way].valid && (block[helper][way].tag == packet->address))
+          {
+            match_way = way;
+            break;
+          }
+        }
+      }
+    }
+  }
+  else
+  {
+    // hit
+    for (uint32_t way = 0; way < NUM_WAY; way++)
+    {
+      if (block[set][way].valid && (block[set][way].tag == packet->address))
+      {
+
+        match_way = way;
+
+        DP(if (warmup_complete[packet->cpu]) {
             cout << "[" << NAME << "] " << __func__ << " instr_id: " << packet->instr_id << " type: " << +packet->type << hex << " addr: " << packet->address;
             cout << " full_addr: " << packet->full_addr << " tag: " << block[set][way].tag << " data: " << block[set][way].data << dec;
             cout << " set: " << set << " way: " << way << " lru: " << block[set][way].lru;
             cout << " event: " << packet->event_cycle << " cycle: " << current_core_cycle[cpu] << endl; });
 
-      break;
+        break;
+      }
     }
   }
 
@@ -1267,7 +1312,7 @@ int CACHE::invalidate_entry(uint64_t inval_addr)
       match_way = way;
 
       DP(if (warmup_complete[cpu]) {
-            cout << "[" << NAME << "] " << __func__ << " inval_addr: " << hex << inval_addr;  
+            cout << "[" << NAME << "] " << __func__ << " inval_addr: " << hex << inval_addr;
             cout << " tag: " << block[set][way].tag << " data: " << block[set][way].data << dec;
             cout << " set: " << set << " way: " << way << " lru: " << block[set][way].lru << " cycle: " << current_core_cycle[cpu] << endl; });
 
@@ -1807,7 +1852,7 @@ int CACHE::check_mshr(PACKET *packet)
     cout << "[" << NAME << "_MSHR] " << __func__ << " new address: " << hex << packet->address;
     cout << " full_addr: " << packet->full_addr << dec << endl; });
 
-  DP(if (warmup_complete[packet->cpu] && (MSHR.occupancy == MSHR_SIZE)) { 
+  DP(if (warmup_complete[packet->cpu] && (MSHR.occupancy == MSHR_SIZE)) {
     cout << "[" << NAME << "_MSHR] " << __func__ << " mshr is full";
     cout << " instr_id: " << packet->instr_id << " mshr occupancy: " << MSHR.occupancy;
     cout << " address: " << hex << packet->address;
