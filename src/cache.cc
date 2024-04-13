@@ -1248,8 +1248,8 @@ int CACHE::check_hit(PACKET *packet)
     }
     else // for hot and very hot sets
     {
-      uint32_t way;
-      for (way = 0; way < NUM_WAY; way++)
+
+      for (uint32_t way = 0; way < NUM_WAY; way++)
       {
         if (block[set][way].foreign == 0 && block[set][way].valid && (block[set][way].tag == packet->address))
         {
@@ -1267,13 +1267,13 @@ int CACHE::check_hit(PACKET *packet)
       }
 
       // look in helper
-      if (way == NUM_WAY)
+      if (match_way == -1)
       {
         int32_t helper = cache_organiser.get_helper_set(set);
 
         if (helper != -1)
         {
-          for (way = 0; way < NUM_WAY; way++)
+          for (uint32_t way = 0; way < NUM_WAY; way++)
           {
             if (block[helper][way].foreign == 1 && block[helper][way].valid && (block[helper][way].tag == packet->address))
             {
