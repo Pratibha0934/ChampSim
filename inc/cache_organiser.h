@@ -4,8 +4,8 @@
 // Defining set types
 #define VERY_COLD 0
 #define COLD 1
-#define VERY_HOT 2
-#define HOT 3
+#define HOT 2
+#define VERY_HOT 3
 #define NEUTRAL 4
 
 // class to organise and distribute blocks among sets
@@ -14,7 +14,7 @@ class CACHE_ORGANISER
     pair<uint32_t, uint64_t> *temperature; // stores temperature of each set
     int32_t *helper;                       // stores helper set of each set
     int32_t *parent;                       // stores the parent set of a helper set
-    uint8_t *set_type;                     // stores the type of set for each set
+    uint16_t *set_type;                    // stores the type of set for each set
     uint32_t num_sets, num_ways;           // stores sets and ways of the cache
     BLOCK **block;                         // pointer to cache blocks
     bool warmup_state;                     // stores warmup state of the program
@@ -31,53 +31,53 @@ class CACHE_ORGANISER
         // sort sets based on temperature
         sort(temperature, temperature + num_sets, sortbysec);
 
-        for (uint32_t set = 0; set < num_sets; set++)
+        for (uint32_t i = 0; i < num_sets; i++)
         {
             // linking hot sets to cold sets -> Assigning helpers
-            if (set < num_sets / 2)
+            if (i < num_sets / 2)
             {
-                set_type[set] = (set < num_sets / 4) ? VERY_HOT : HOT;
+                set_type[temperature[i].first] = (i < num_sets / 4) ? VERY_HOT : HOT;
 
-                uint32_t helper_set_index = num_sets - set - 1;
+                uint32_t helper_set_index = num_sets - i - 1;
 
                 // assign helper set
-                helper[temperature[set].first] = temperature[helper_set_index].first;
+                helper[temperature[i].first] = temperature[helper_set_index].first;
 
                 // assign parent set
-                parent[temperature[helper_set_index].first] = temperature[set].first;
+                parent[temperature[helper_set_index].first] = temperature[i].first;
             }
 
             // Give 25% blocks of cold sets to hot sets
             // and update lru values
-            if (set >= num_sets / 2 && set < (num_sets * 3) / 4)
+            if (i >= num_sets / 2 && i < (num_sets * 3) / 4)
             {
-                set_type[set] = COLD;
+                set_type[temperature[i].first] = COLD;
                 for (uint32_t way = 0; way < num_ways / 4; way++)
                 {
-                    block[set][way].foreign = 1;
-                    block[set][way].lru = way + num_ways;
+                    block[temperature[i].first][way].foreign = 1;
+                    block[temperature[i].first][way].lru = way + num_ways;
                 }
 
                 for (uint32_t way = num_ways / 4; way < num_ways; way++)
                 {
-                    block[set][way].lru = way - (num_ways / 4);
+                    block[temperature[i].first][way].lru = way - (num_ways / 4);
                 }
             }
 
             // Give 50% blocks of very cold sets to very hot sets
             // and update lru values
-            if (set >= (num_sets * 3) / 4 && set < num_sets)
+            if (i >= (num_sets * 3) / 4 && i < num_sets)
             {
-                set_type[set] = VERY_COLD;
+                set_type[temperature[i].first] = VERY_COLD;
                 for (uint32_t way = 0; way < num_ways / 2; way++)
                 {
-                    block[set][way].foreign = 1;
-                    block[set][way].lru = way + num_ways;
+                    block[temperature[i].first][way].foreign = 1;
+                    block[temperature[i].first][way].lru = way + num_ways;
                 }
 
                 for (uint32_t way = num_ways / 2; way < num_ways; way++)
                 {
-                    block[set][way].lru = way - (num_ways / 2);
+                    block[temperature[i].first][way].lru = way - (num_ways / 2);
                 }
             }
         }
@@ -113,7 +113,7 @@ public:
     }
 
     // Getter function to get set type
-    uint8_t get_set_type(uint32_t set)
+    uint16_t get_set_type(uint32_t set)
     {
         return set_type[set];
     }
@@ -135,7 +135,7 @@ public:
         temperature = new pair<uint32_t, uint64_t>[num_sets];
         helper = new int32_t[num_sets];
         parent = new int32_t[num_sets];
-        set_type = new uint8_t[num_sets];
+        set_type = new uint16_t[num_sets];
 
         // initialising values
         for (uint32_t set = 0; set < num_sets; set++)

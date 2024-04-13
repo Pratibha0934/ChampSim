@@ -24,6 +24,10 @@ void CACHE::handle_fill()
     uint32_t set = get_set(MSHR.entry[mshr_index].address), way;
     if (cache_type == IS_LLC)
     {
+      cache_organiser.update_temperature(set, cpu);
+    }
+    if (cache_type == IS_LLC)
+    {
       pair<uint32_t, uint32_t> victim = llc_find_victim(fill_cpu, MSHR.entry[mshr_index].instr_id, set, block[set], MSHR.entry[mshr_index].ip, MSHR.entry[mshr_index].full_addr, MSHR.entry[mshr_index].type);
       set = victim.first;
       way = victim.second;
@@ -260,6 +264,10 @@ void CACHE::handle_writeback()
 
     // access cache
     uint32_t set = get_set(WQ.entry[index].address);
+    if (cache_type == IS_LLC)
+    {
+      cache_organiser.update_temperature(set, cpu);
+    }
     int way = check_hit(&WQ.entry[index]);
 
     if (way >= 0)
@@ -583,6 +591,10 @@ void CACHE::handle_read()
 
       // access cache
       uint32_t set = get_set(RQ.entry[index].address);
+      if (cache_type == IS_LLC)
+      {
+        cache_organiser.update_temperature(set, cpu);
+      }
       int way = check_hit(&RQ.entry[index]);
 
       if (way >= 0)
@@ -914,6 +926,10 @@ void CACHE::handle_prefetch()
 
       // access cache
       uint32_t set = get_set(PQ.entry[index].address);
+      if (cache_type == IS_LLC)
+      {
+        cache_organiser.update_temperature(set, cpu);
+      }
       int way = check_hit(&PQ.entry[index]);
 
       if (way >= 0)
@@ -1223,15 +1239,15 @@ int CACHE::check_hit(PACKET *packet)
     assert(0);
   }
 
-  if (cache_type == IS_LLC) // for llc
+  if (cache_type == IS_LLC && warmup_complete[cpu]) // for llc
   {
-    uint8_t set_type = cache_organiser.get_set_type(set);
+    uint16_t set_type = cache_organiser.get_set_type(set);
 
     if (set_type == COLD || set_type == VERY_COLD) // for cold and very cold sets
     {
       for (uint32_t way = 0; way < NUM_WAY; way++)
       {
-        if (block[set][way].foreign == 0 && block[set][way].valid && (block[set][way].tag == packet->address))
+        if (block[set][way].foreign == false && block[set][way].valid && (block[set][way].tag == packet->address))
         {
 
           match_way = way;
@@ -1251,7 +1267,7 @@ int CACHE::check_hit(PACKET *packet)
 
       for (uint32_t way = 0; way < NUM_WAY; way++)
       {
-        if (block[set][way].foreign == 0 && block[set][way].valid && (block[set][way].tag == packet->address))
+        if (block[set][way].foreign == false && block[set][way].valid && (block[set][way].tag == packet->address))
         {
 
           match_way = way;
@@ -1275,7 +1291,7 @@ int CACHE::check_hit(PACKET *packet)
         {
           for (uint32_t way = 0; way < NUM_WAY; way++)
           {
-            if (block[helper][way].foreign == 1 && block[helper][way].valid && (block[helper][way].tag == packet->address))
+            if (block[helper][way].foreign && block[helper][way].valid && (block[helper][way].tag == packet->address))
             {
 
               match_way = way;
@@ -1293,7 +1309,8 @@ int CACHE::check_hit(PACKET *packet)
         else
         {
           // Error handling
-          cerr << "Error at llc_update_replacement_state in getting helper set" << endl;
+          cerr << "Error at check_hit() in getting helper set" << endl;
+          cerr << set << helper << endl;
           assert(0);
         }
       }

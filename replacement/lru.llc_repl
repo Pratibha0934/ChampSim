@@ -13,7 +13,7 @@ pair<uint32_t, uint32_t> CACHE::llc_find_victim(uint32_t cpu, uint64_t instr_id,
 
     if (warmup_complete[cpu])
     {
-        uint8_t set_type = cache_organiser.get_set_type(set);
+        uint16_t set_type = cache_organiser.get_set_type(set);
         uint32_t way;
 
         if (set_type == COLD || set_type == VERY_COLD) // for cold and very cold sets
@@ -168,11 +168,9 @@ void CACHE::llc_update_replacement_state(uint32_t cpu, uint32_t set, uint32_t wa
     if (hit && (type == WRITEBACK)) // writeback hit does not update LRU state
         return;
 
-    cache_organiser.update_temperature(set, cpu);
-
     if (warmup_complete[cpu]) // after warmup
     {
-        uint8_t set_type = cache_organiser.get_set_type(set);
+        uint16_t set_type = cache_organiser.get_set_type(set);
 
         if (set_type == COLD || set_type == VERY_COLD) // for cold and very cold sets
         {
