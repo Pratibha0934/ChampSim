@@ -1241,6 +1241,7 @@ int CACHE::check_hit(PACKET *packet)
 
   if (cache_type == IS_LLC && warmup_complete[cpu]) // for llc
   {
+    // set type
     uint16_t set_type = cache_organiser.get_set_type(set);
 
     if (set_type == COLD || set_type == VERY_COLD) // for cold and very cold sets
@@ -1285,9 +1286,10 @@ int CACHE::check_hit(PACKET *packet)
       // look in helper
       if (match_way == -1)
       {
+        // get helper set
         int32_t helper = cache_organiser.get_helper_set(set);
 
-        if (helper != -1)
+        if (helper != -1) // if helper set exists
         {
           for (uint32_t way = 0; way < NUM_WAY; way++)
           {

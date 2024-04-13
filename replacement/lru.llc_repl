@@ -36,6 +36,7 @@ pair<uint32_t, uint32_t> CACHE::llc_find_victim(uint32_t cpu, uint64_t instr_id,
             // LRU victim
             if (way == NUM_WAY)
             {
+                // calculate max lru
                 uint32_t max_lru = (set_type == VERY_COLD) ? NUM_WAY / 2 - 1 : (NUM_WAY * 3) / 4 - 1;
 
                 for (way = 0; way < NUM_WAY; way++)
@@ -53,6 +54,7 @@ pair<uint32_t, uint32_t> CACHE::llc_find_victim(uint32_t cpu, uint64_t instr_id,
                 }
             }
 
+            // Error handling
             if (way == NUM_WAY)
             {
                 cerr << "[" << NAME << "] " << __func__ << " no victim! set: " << set << endl;
@@ -65,6 +67,8 @@ pair<uint32_t, uint32_t> CACHE::llc_find_victim(uint32_t cpu, uint64_t instr_id,
         else // for hot and very hot sets
         {
             victim.first = set;
+
+            // calculate max lru
             uint32_t max_lru = (set_type == VERY_HOT) ? (NUM_WAY * 3) / 2 - 1 : (NUM_WAY * 5) / 4 - 1;
 
             // fill own bocks first if any block is empty
@@ -80,6 +84,7 @@ pair<uint32_t, uint32_t> CACHE::llc_find_victim(uint32_t cpu, uint64_t instr_id,
                     break;
                 }
 
+                // finding lru victim
                 if (block[set][way].foreign == false && block[set][way].lru == max_lru)
                 {
                     victim_lru.first = set;
@@ -89,8 +94,10 @@ pair<uint32_t, uint32_t> CACHE::llc_find_victim(uint32_t cpu, uint64_t instr_id,
             // fill helper set if any block is empty
             if (way == NUM_WAY)
             {
+                // finding helper set
                 int32_t helper = cache_organiser.get_helper_set(set);
 
+                // if helper found
                 if (helper != -1)
                 {
                     victim.first = helper;
@@ -105,9 +112,11 @@ pair<uint32_t, uint32_t> CACHE::llc_find_victim(uint32_t cpu, uint64_t instr_id,
 
                             break;
                         }
-                        if (block[set][way].foreign && block[set][way].lru == max_lru)
+
+                        // finding lru victim
+                        if (block[helper][way].foreign && block[helper][way].lru == max_lru)
                         {
-                            victim_lru.first = set;
+                            victim_lru.first = helper;
                             victim_lru.second = way;
                         }
                     }
@@ -120,6 +129,7 @@ pair<uint32_t, uint32_t> CACHE::llc_find_victim(uint32_t cpu, uint64_t instr_id,
                 }
             }
 
+            // if no invalid block found
             if (way == NUM_WAY)
             {
                 return victim_lru;

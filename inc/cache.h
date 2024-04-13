@@ -135,6 +135,7 @@ public:
             }
         }
 
+        // Initialise cache organiser for LLC only
         if (NAME == "LLC")
         {
             cache_organiser = CACHE_ORGANISER(NUM_SET, NUM_WAY, block);

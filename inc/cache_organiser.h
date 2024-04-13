@@ -19,7 +19,7 @@ class CACHE_ORGANISER
     BLOCK **block;                         // pointer to cache blocks
     bool warmup_state;                     // stores warmup state of the program
 
-    // function for sorting *temperature
+    // function for sorting *temperature in descending order
     static bool sortbysec(const pair<uint32_t, uint64_t> &a, const pair<uint32_t, uint64_t> &b)
     {
         return (a.second > b.second);
@@ -36,6 +36,7 @@ class CACHE_ORGANISER
             // linking hot sets to cold sets -> Assigning helpers
             if (i < num_sets / 2)
             {
+                // update set type
                 set_type[temperature[i].first] = (i < num_sets / 4) ? VERY_HOT : HOT;
 
                 uint32_t helper_set_index = num_sets - i - 1;
@@ -51,7 +52,9 @@ class CACHE_ORGANISER
             // and update lru values
             if (i >= num_sets / 2 && i < (num_sets * 3) / 4)
             {
+                // update set type
                 set_type[temperature[i].first] = COLD;
+
                 for (uint32_t way = 0; way < num_ways / 4; way++)
                 {
                     block[temperature[i].first][way].foreign = 1;
@@ -68,7 +71,9 @@ class CACHE_ORGANISER
             // and update lru values
             if (i >= (num_sets * 3) / 4 && i < num_sets)
             {
+                // update set type
                 set_type[temperature[i].first] = VERY_COLD;
+
                 for (uint32_t way = 0; way < num_ways / 2; way++)
                 {
                     block[temperature[i].first][way].foreign = 1;
