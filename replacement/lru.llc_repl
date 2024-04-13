@@ -8,36 +8,46 @@ void CACHE::llc_initialize_replacement()
 // find replacement victim
 pair<uint32_t, uint32_t> CACHE::llc_find_victim(uint32_t cpu, uint64_t instr_id, uint32_t set, const BLOCK *current_set, uint64_t ip, uint64_t full_addr, uint32_t type)
 {
-    pair<uint32_t, int32_t> victim;     // <set, way>
-    pair<uint32_t, uint32_t> victim_lru; // <set, way>
+    pair<uint32_t, int32_t> victim;      // <set, way>
+    pair<uint32_t, uint32_t> victim_lru; // <set, way> for lru_victim oh hot set
 
     if (warmup_complete[cpu])
     {
-        int32_t helper = cache_organiser.get_helper_set(set);
+        uint8_t set_type = cache_organiser.get_set_type(set);
         uint32_t way;
 
-        if (helper == -1) // For cold set
+        if (set_type == COLD || set_type == VERY_COLD) // for cold and very cold sets
         {
             victim.first = set;
 
-            // checking if any block is invalid
-            for (way = NUM_WAY / 2; way < NUM_WAY; way++)
+            // fill invalid line first
+            for (way = 0; way < NUM_WAY; way++)
             {
-                if (block[set][way].valid == false)
+                if (block[set][way].foreign == 0 && block[set][way].valid == false)
                 {
-                    victim.second = way;
+                    DP(if (warmup_complete[cpu]) {
+                    cout << "[" << NAME << "] " << __func__ << " instr_id: " << instr_id << " invalid set: " << set << " way: " << way;
+                    cout << hex << " address: " << (full_addr>>LOG2_BLOCK_SIZE) << " victim address: " << block[set][way].address << " data: " << block[set][way].data;
+                    cout << dec << " lru: " << block[set][way].lru << endl; });
+
                     break;
                 }
             }
-
-            // For LRU victim
+            // LRU victim
             if (way == NUM_WAY)
             {
-                for (way = NUM_WAY / 2; way < NUM_WAY; way++)
+                uint32_t max_lru = (set_type == VERY_COLD) ? NUM_WAY / 2 - 1 : (NUM_WAY * 3) / 4 - 1;
+
+                for (way = 0; way < NUM_WAY; way++)
                 {
-                    if (block[set][way].lru == (NUM_WAY / 2) - 1)
+                    if (block[set][way].foreign == 0 && block[set][way].lru == max_lru)
                     {
-                        victim.second = way;
+
+                        DP(if (warmup_complete[cpu]) {
+                        cout << "[" << NAME << "] " << __func__ << " instr_id: " << instr_id << " replace set: " << set << " way: " << way;
+                        cout << hex << " address: " << (full_addr>>LOG2_BLOCK_SIZE) << " victim address: " << block[set][way].address << " data: " << block[set][way].data;
+                        cout << dec << " lru: " << block[set][way].lru << endl; });
+
                         break;
                     }
                 }
@@ -49,54 +59,73 @@ pair<uint32_t, uint32_t> CACHE::llc_find_victim(uint32_t cpu, uint64_t instr_id,
                 assert(0);
             }
 
+            victim.second = way;
             return victim;
         }
-        else // For hot set
+        else // for hot and very hot sets
         {
             victim.first = set;
-            victim.second = -1;
+            uint32_t max_lru = (set_type == VERY_HOT) ? (NUM_WAY * 3) / 2 - 1 : (NUM_WAY * 5) / 4 - 1;
 
-            // checking if any block is invalid in main set
+            // fill own bocks first if any block is empty
             for (way = 0; way < NUM_WAY; way++)
             {
-                if (block[set][way].valid == false)
+                if (block[set][way].foreign == 0 && block[set][way].valid == false)
                 {
-                    victim.second = way;
+                    DP(if (warmup_complete[cpu]) {
+                    cout << "[" << NAME << "] " << __func__ << " instr_id: " << instr_id << " invalid set: " << set << " way: " << way;
+                    cout << hex << " address: " << (full_addr>>LOG2_BLOCK_SIZE) << " victim address: " << block[set][way].address << " data: " << block[set][way].data;
+                    cout << dec << " lru: " << block[set][way].lru << endl; });
+
                     break;
                 }
 
-                // lru victim
-                if (block[set][way].lru == NUM_WAY + (NUM_WAY / 2) - 1)
+                if (block[set][way].foreign == 0 && block[set][way].lru == max_lru)
                 {
                     victim_lru.first = set;
                     victim_lru.second = way;
                 }
             }
-
-            // Searching in helper set
+            // fill helper set if any block is empty
             if (way == NUM_WAY)
             {
-                for (way = 0; way < NUM_WAY / 2; way++)
+                int32_t helper = cache_organiser.get_helper_set(set);
+
+                if (helper != -1)
                 {
-                    if (block[helper][way].valid == false)
+                    victim.first = helper;
+                    for (way = 0; way < NUM_WAY; way++)
                     {
-                        victim.second = way;
-                        break;
+                        if (block[helper][way].foreign == 1 && block[helper][way].valid == false)
+                        {
+                            DP(if (warmup_complete[cpu]) {
+                            cout << "[" << NAME << "] " << __func__ << " instr_id: " << instr_id << " invalid set: " << set << " way: " << way;
+                            cout << hex << " address: " << (full_addr>>LOG2_BLOCK_SIZE) << " victim address: " << block[set][way].address << " data: " << block[set][way].data;
+                            cout << dec << " lru: " << block[set][way].lru << endl; });
+
+                            break;
+                        }
+                        if (block[set][way].foreign == 1 && block[set][way].lru == max_lru)
+                        {
+                            victim_lru.first = set;
+                            victim_lru.second = way;
+                        }
                     }
-                    // lru victim
-                    if (block[set][way].lru == NUM_WAY + (NUM_WAY / 2) - 1)
-                    {
-                        victim_lru.first = helper;
-                        victim_lru.second = way;
-                    }
+                }
+                else
+                {
+                    // Error handling
+                    cerr << "Error at llc_update_replacement_state in getting helper set" << endl;
+                    assert(0);
                 }
             }
 
-            if (victim.second == -1)
+            if (way == NUM_WAY)
             {
                 return victim_lru;
             }
 
+            victim.second = way;
             return victim;
         }
     }
@@ -143,42 +172,51 @@ void CACHE::llc_update_replacement_state(uint32_t cpu, uint32_t set, uint32_t wa
 
     if (warmup_complete[cpu]) // after warmup
     {
-        // for a cold set
-        if (block[set][way].hot == 0)
+        uint8_t set_type = cache_organiser.get_set_type(set);
+
+        if (set_type == COLD || set_type == VERY_COLD) // for cold and very cold sets
         {
-            for (size_t i = 0; i < NUM_WAY; i++)
+            // update lru replacement state
+            for (uint32_t i = 0; i < NUM_WAY; i++)
             {
-                if (block[set][i].lru < block[set][way].lru && block[set][i].hot == 0)
+                if (block[set][i].foreign == 0 && block[set][i].lru < block[set][way].lru)
                 {
                     block[set][i].lru++;
                 }
             }
-            block[set][way].lru = 0;
+            block[set][way].lru = 0; // promote to the MRU position
         }
-        else // for hot set
+        else // for hot and very hot sets
         {
-            for (size_t i = 0; i < NUM_WAY; i++)
+            // update lru replacement state of hot set
+            for (uint32_t i = 0; i < NUM_WAY; i++)
             {
-                if (block[set][i].lru < block[set][way].lru && block[set][i].hot == 1)
+                if (block[set][i].foreign == 0 && block[set][i].lru < block[set][way].lru)
                 {
                     block[set][i].lru++;
                 }
             }
 
-            // get helper/parent set if available
-            int32_t next_set = cache_organiser.get_helper_set(set);
+            int32_t helper = cache_organiser.get_helper_set(set);
 
-            set = (next_set != -1) ? next_set : cache_organiser.get_parent_set(set);
-
-            for (size_t i = 0; i < NUM_WAY; i++)
+            if (helper != -1)
             {
-                if (block[set][i].lru < block[set][way].lru && block[set][i].hot == 1)
+                for (uint32_t i = 0; i < NUM_WAY; i++)
                 {
-                    block[set][i].lru++;
+                    if (block[set][i].foreign == 1 && block[set][i].lru < block[set][way].lru)
+                    {
+                        block[set][i].lru++;
+                    }
                 }
             }
+            else
+            {
+                // Error handling
+                cerr << "Error at llc_update_replacement_state in getting helper set" << endl;
+                assert(0);
+            }
 
-            block[set][way].lru = 0;
+            block[set][way].lru = 0; // promote to the MRU position
         }
     }
     else // before warmup

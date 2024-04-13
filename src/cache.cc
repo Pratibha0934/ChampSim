@@ -1223,48 +1223,83 @@ int CACHE::check_hit(PACKET *packet)
     assert(0);
   }
 
-  if (cache_type == IS_LLC)
+  if (cache_type == IS_LLC) // for llc
   {
-    int32_t helper = cache_organiser.get_helper_set(set);
+    uint8_t set_type = cache_organiser.get_set_type(set);
 
-    if (helper == -1) // for cold set
+    if (set_type == COLD || set_type == VERY_COLD) // for cold and very cold sets
     {
-      for (uint32_t way = NUM_WAY / 2; way < NUM_WAY; way++)
+      for (uint32_t way = 0; way < NUM_WAY; way++)
       {
-        if (block[set][way].valid && (block[set][way].tag == packet->address))
+        if (block[set][way].foreign == 0 && block[set][way].valid && (block[set][way].tag == packet->address))
         {
+
           match_way = way;
+
+          DP(if (warmup_complete[packet->cpu]) {
+            cout << "[" << NAME << "] " << __func__ << " instr_id: " << packet->instr_id << " type: " << +packet->type << hex << " addr: " << packet->address;
+            cout << " full_addr: " << packet->full_addr << " tag: " << block[set][way].tag << " data: " << block[set][way].data << dec;
+            cout << " set: " << set << " way: " << way << " lru: " << block[set][way].lru;
+            cout << " event: " << packet->event_cycle << " cycle: " << current_core_cycle[cpu] << endl; });
+
           break;
         }
       }
     }
-    else // for hot set
+    else // for hot and very hot sets
     {
       uint32_t way;
       for (way = 0; way < NUM_WAY; way++)
       {
-        if (block[set][way].valid && (block[set][way].tag == packet->address))
+        if (block[set][way].foreign == 0 && block[set][way].valid && (block[set][way].tag == packet->address))
         {
+
           match_way = way;
+
+          DP(if (warmup_complete[packet->cpu]) {
+            cout << "[" << NAME << "] " << __func__ << " instr_id: " << packet->instr_id << " type: " << +packet->type << hex << " addr: " << packet->address;
+            cout << " full_addr: " << packet->full_addr << " tag: " << block[set][way].tag << " data: " << block[set][way].data << dec;
+            cout << " set: " << set << " way: " << way << " lru: " << block[set][way].lru;
+            cout << " event: " << packet->event_cycle << " cycle: " << current_core_cycle[cpu] << endl; });
+
           break;
         }
       }
 
-      // searching in helper set
+      // look in helper
       if (way == NUM_WAY)
       {
-        for (way = 0; way < NUM_WAY; way++)
+        int32_t helper = cache_organiser.get_helper_set(set);
+
+        if (helper != -1)
         {
-          if (block[helper][way].valid && (block[helper][way].tag == packet->address))
+          for (way = 0; way < NUM_WAY; way++)
           {
-            match_way = way;
-            break;
+            if (block[helper][way].foreign == 1 && block[helper][way].valid && (block[helper][way].tag == packet->address))
+            {
+
+              match_way = way;
+
+              DP(if (warmup_complete[packet->cpu]) {
+                cout << "[" << NAME << "] " << __func__ << " instr_id: " << packet->instr_id << " type: " << +packet->type << hex << " addr: " << packet->address;
+                cout << " full_addr: " << packet->full_addr << " tag: " << block[set][way].tag << " data: " << block[set][way].data << dec;
+                cout << " set: " << set << " way: " << way << " lru: " << block[set][way].lru;
+                cout << " event: " << packet->event_cycle << " cycle: " << current_core_cycle[cpu] << endl; });
+
+              break;
+            }
           }
+        }
+        else
+        {
+          // Error handling
+          cerr << "Error at llc_update_replacement_state in getting helper set" << endl;
+          assert(0);
         }
       }
     }
   }
-  else
+  else // for other caches
   {
     // hit
     for (uint32_t way = 0; way < NUM_WAY; way++)
