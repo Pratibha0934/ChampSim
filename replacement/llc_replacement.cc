@@ -11,9 +11,9 @@ pair<uint32_t, uint32_t> CACHE::llc_find_victim(uint32_t cpu, uint64_t instr_id,
     pair<uint32_t, int32_t> victim;      // <set, way>
     pair<uint32_t, uint32_t> victim_lru; // <set, way> for lru_victim oh hot set
 
-    if (warmup_complete[cpu])
+    if (warmup_complete[cpu]) // after warmup
     {
-        uint16_t set_type = cache_organiser.get_set_type(set);
+        uint16_t set_type = cache_organiser.get_set_type(set); // get set type
         uint32_t way;
 
         if (set_type == COLD || set_type == VERY_COLD) // for cold and very cold sets
@@ -23,7 +23,7 @@ pair<uint32_t, uint32_t> CACHE::llc_find_victim(uint32_t cpu, uint64_t instr_id,
             // fill invalid line first
             for (way = 0; way < NUM_WAY; way++)
             {
-                if (block[set][way].foreign == 0 && block[set][way].valid == false)
+                if (block[set][way].foreign == false && block[set][way].valid == false)
                 {
                     DP(if (warmup_complete[cpu]) {
                     cout << "[" << NAME << "] " << __func__ << " instr_id: " << instr_id << " invalid set: " << set << " way: " << way;
@@ -40,7 +40,7 @@ pair<uint32_t, uint32_t> CACHE::llc_find_victim(uint32_t cpu, uint64_t instr_id,
 
                 for (way = 0; way < NUM_WAY; way++)
                 {
-                    if (block[set][way].foreign == 0 && block[set][way].lru == max_lru)
+                    if (block[set][way].foreign == false && block[set][way].lru == max_lru)
                     {
 
                         DP(if (warmup_complete[cpu]) {
@@ -70,7 +70,7 @@ pair<uint32_t, uint32_t> CACHE::llc_find_victim(uint32_t cpu, uint64_t instr_id,
             // fill own bocks first if any block is empty
             for (way = 0; way < NUM_WAY; way++)
             {
-                if (block[set][way].foreign == 0 && block[set][way].valid == false)
+                if (block[set][way].foreign == false && block[set][way].valid == false)
                 {
                     DP(if (warmup_complete[cpu]) {
                     cout << "[" << NAME << "] " << __func__ << " instr_id: " << instr_id << " invalid set: " << set << " way: " << way;
@@ -80,7 +80,7 @@ pair<uint32_t, uint32_t> CACHE::llc_find_victim(uint32_t cpu, uint64_t instr_id,
                     break;
                 }
 
-                if (block[set][way].foreign == 0 && block[set][way].lru == max_lru)
+                if (block[set][way].foreign == false && block[set][way].lru == max_lru)
                 {
                     victim_lru.first = set;
                     victim_lru.second = way;
@@ -96,7 +96,7 @@ pair<uint32_t, uint32_t> CACHE::llc_find_victim(uint32_t cpu, uint64_t instr_id,
                     victim.first = helper;
                     for (way = 0; way < NUM_WAY; way++)
                     {
-                        if (block[helper][way].foreign == 1 && block[helper][way].valid == false)
+                        if (block[helper][way].foreign && block[helper][way].valid == false)
                         {
                             DP(if (warmup_complete[cpu]) {
                             cout << "[" << NAME << "] " << __func__ << " instr_id: " << instr_id << " invalid set: " << set << " way: " << way;
@@ -105,7 +105,7 @@ pair<uint32_t, uint32_t> CACHE::llc_find_victim(uint32_t cpu, uint64_t instr_id,
 
                             break;
                         }
-                        if (block[set][way].foreign == 1 && block[set][way].lru == max_lru)
+                        if (block[set][way].foreign && block[set][way].lru == max_lru)
                         {
                             victim_lru.first = set;
                             victim_lru.second = way;
@@ -174,14 +174,49 @@ void CACHE::llc_update_replacement_state(uint32_t cpu, uint32_t set, uint32_t wa
 
         if (set_type == COLD || set_type == VERY_COLD) // for cold and very cold sets
         {
-            // update lru replacement state
-            for (uint32_t i = 0; i < NUM_WAY; i++)
+            if (block[set][way].foreign) // if block is foreign
             {
-                if (block[set][i].foreign == 0 && block[set][i].lru < block[set][way].lru)
+                // update lru replacement state of foreign blocks in cold set
+                for (uint32_t i = 0; i < NUM_WAY; i++)
                 {
-                    block[set][i].lru++;
+                    if (block[set][i].foreign && block[set][i].lru < block[set][way].lru)
+                    {
+                        block[set][i].lru++;
+                    }
+                }
+
+                int32_t parent = cache_organiser.get_parent_set(set); // get parent of cold set
+
+                if (parent != -1)
+                {
+                    // update lru replacement state of blocks in parent set
+                    for (uint32_t i = 0; i < NUM_WAY; i++)
+                    {
+                        if (block[parent][i].foreign == false && block[parent][i].lru < block[set][way].lru)
+                        {
+                            block[parent][i].lru++;
+                        }
+                    }
+                }
+                else
+                {
+                    // Error handling
+                    cerr << "Error at llc_update_replacement_state in getting parent set" << endl;
+                    assert(0);
                 }
             }
+            else // if block is not foreign
+            {
+                // update lru replacement state
+                for (uint32_t i = 0; i < NUM_WAY; i++)
+                {
+                    if (block[set][i].foreign == false && block[set][i].lru < block[set][way].lru)
+                    {
+                        block[set][i].lru++;
+                    }
+                }
+            }
+
             block[set][way].lru = 0; // promote to the MRU position
         }
         else // for hot and very hot sets
@@ -189,19 +224,20 @@ void CACHE::llc_update_replacement_state(uint32_t cpu, uint32_t set, uint32_t wa
             // update lru replacement state of hot set
             for (uint32_t i = 0; i < NUM_WAY; i++)
             {
-                if (block[set][i].foreign == 0 && block[set][i].lru < block[set][way].lru)
+                if (block[set][i].foreign == false && block[set][i].lru < block[set][way].lru)
                 {
                     block[set][i].lru++;
                 }
             }
 
-            int32_t helper = cache_organiser.get_helper_set(set);
+            int32_t helper = cache_organiser.get_helper_set(set); // get helper set
 
             if (helper != -1)
             {
+                // update lru replacement state of helper set
                 for (uint32_t i = 0; i < NUM_WAY; i++)
                 {
-                    if (block[set][i].foreign == 1 && block[set][i].lru < block[set][way].lru)
+                    if (block[set][i].foreign && block[set][i].lru < block[set][way].lru)
                     {
                         block[set][i].lru++;
                     }
